@@ -55,9 +55,16 @@ export class TestExecutor {
       scenarioName
     );
 
+    // Determine if this is a scenario outline
+    const isScenarioOutline =
+      scenarioName && lineNumber && filePath && fs.existsSync(filePath)
+        ? this.isScenarioOutline(filePath, lineNumber, scenarioName)
+        : false;
+
     // If scenarioName is a scenario outline (not an example), run all examples in one command
     if (
       scenarioName &&
+      isScenarioOutline &&
       !isScenarioOutlineExample &&
       filePath &&
       fs.existsSync(filePath)
@@ -82,7 +89,8 @@ export class TestExecutor {
       return;
     }
 
-    let command = `${behaveCommand} "${filePath}${lineNumber ? `:${lineNumber}` : ""}"`;
+    // For regular scenarios and scenario outline examples
+    let command = `${behaveCommand} "${filePath}"`;
 
     if (scenarioName) {
       // For scenario outline examples, we need to use the original outline name
@@ -93,8 +101,6 @@ export class TestExecutor {
         command += ` --name="${scenarioName}"`;
       }
     }
-    // If no scenarioName is provided, behave will run all scenarios in the file
-    // This is used for scenario outlines to iterate over all examples
 
     // Add tags if specified
     if (tags) {
@@ -140,11 +146,17 @@ export class TestExecutor {
         scenarioName
       );
 
+      // Determine if this is a scenario outline
+      const isScenarioOutline =
+        scenarioName && lineNumber && fs.existsSync(filePath)
+          ? this.isScenarioOutline(filePath, lineNumber, scenarioName)
+          : false;
+
       // If scenarioName is a scenario outline (not an example), debug all examples in one command
       if (
         scenarioName &&
+        isScenarioOutline &&
         !isScenarioOutlineExample &&
-        filePath &&
         fs.existsSync(filePath)
       ) {
         // Debug a single command with --name="<outline name>" (without line number)
@@ -165,8 +177,8 @@ export class TestExecutor {
         return;
       }
 
-      // Build args array similar to runScenario method
-      const args = [`${filePath}${lineNumber ? `:${lineNumber}` : ""}`];
+      // Build args array for regular scenarios and scenario outline examples
+      const args = [filePath];
 
       // Add scenario name filter if provided
       if (scenarioName) {
@@ -627,9 +639,8 @@ if __name__ == "__main__":
         scenarioName
       );
 
-      let command = `${behaveCommand} "${filePath}${
-        lineNumber ? `:${lineNumber}` : ""
-      }"`;
+      // For regular scenarios and scenario outline examples
+      let command = `${behaveCommand} "${filePath}"`;
 
       if (scenarioName) {
         // For scenario outline examples, we need to use the original outline name
@@ -924,6 +935,40 @@ if __name__ == "__main__":
       return match[2].trim();
     }
     return scenarioName;
+  }
+
+  /**
+   * Check if a scenario is a scenario outline
+   */
+  private isScenarioOutline(
+    filePath: string,
+    lineNumber: number,
+    scenarioName?: string
+  ): boolean {
+    try {
+      // Parse the feature file to check if this line contains a scenario outline
+      const content = fs.readFileSync(filePath, "utf-8");
+      const lines = content.split("\n");
+
+      // Check if the line at lineNumber contains "Scenario Outline:"
+      if (lineNumber > 0 && lineNumber <= lines.length) {
+        const line = lines[lineNumber - 1]; // Convert to 0-based index
+        const isOutlineLine =
+          line?.trim().startsWith("Scenario Outline:") ?? false;
+
+        // If we have a scenario name, also check if it's not an example
+        if (scenarioName && this.isScenarioOutlineExample(scenarioName)) {
+          return false; // It's an example, not the outline itself
+        }
+
+        return isOutlineLine;
+      }
+
+      return false;
+    } catch {
+      // If we can't read the file, fall back to false
+      return false;
+    }
   }
 
   /**
