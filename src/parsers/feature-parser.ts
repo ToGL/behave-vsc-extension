@@ -88,7 +88,7 @@ export class FeatureParser {
         for (const featureKeyword of keywords.feature) {
           if (trimmed.startsWith(featureKeyword)) {
             return {
-              name: trimmed.substring(featureKeyword.length).trim(),
+              name: this.extractNameAfterKeyword(trimmed, featureKeyword),
               lineNumber: i + 1,
             };
           }
@@ -133,47 +133,6 @@ export class FeatureParser {
         if (tagMatches) {
           currentScenarioTags.push(...tagMatches);
         }
-      } else if (this.matchesKeyword(trimmed, keywords.scenario)) {
-        if (currentScenario) {
-          if (isCurrentScenarioOutline) {
-            scenarioOutlines.push({
-              scenario: currentScenario,
-              examplesData: currentExamplesData,
-              examplesHeaders: currentExamplesHeaders,
-              examplesLineNumbers: currentExamplesLineNumbers,
-              outlineLineNumber,
-            });
-          } else {
-            scenarios.push(currentScenario);
-          }
-        }
-
-        const matchedKeyword = this.findMatchedKeyword(trimmed, keywords.scenario);
-        const scenarioName = trimmed.substring(matchedKeyword.length).trim();
-
-        if (!scenarioName) {
-          Logger.getInstance().warn(
-            `Warning: Empty scenario name found at line ${lineNumber} in feature file`
-          );
-        }
-
-        currentScenario = {
-          name: scenarioName || "Unnamed Scenario",
-          line: lineNumber,
-          range: new vscode.Range(lineNumber - 1, 0, lineNumber - 1, 0),
-          lineNumber,
-          steps: [],
-          tags: currentScenarioTags,
-          filePath: "",
-          isScenarioOutline: false,
-          featureLineNumber,
-        };
-        inExamplesSection = false;
-        isCurrentScenarioOutline = false;
-        currentExamplesData = [];
-        currentExamplesHeaders = [];
-        currentExamplesLineNumbers = [];
-        currentScenarioTags = [];
       } else if (this.matchesKeyword(trimmed, keywords.scenario_outline)) {
         if (currentScenario) {
           if (isCurrentScenarioOutline) {
@@ -190,7 +149,7 @@ export class FeatureParser {
         }
 
         const matchedKeyword = this.findMatchedKeyword(trimmed, keywords.scenario_outline);
-        const scenarioName = trimmed.substring(matchedKeyword.length).trim();
+        const scenarioName = this.extractNameAfterKeyword(trimmed, matchedKeyword);
 
         if (!scenarioName) {
           Logger.getInstance().warn(
@@ -212,6 +171,47 @@ export class FeatureParser {
         outlineLineNumber = lineNumber;
         inExamplesSection = false;
         isCurrentScenarioOutline = true;
+        currentExamplesData = [];
+        currentExamplesHeaders = [];
+        currentExamplesLineNumbers = [];
+        currentScenarioTags = [];
+      } else if (this.matchesKeyword(trimmed, keywords.scenario)) {
+        if (currentScenario) {
+          if (isCurrentScenarioOutline) {
+            scenarioOutlines.push({
+              scenario: currentScenario,
+              examplesData: currentExamplesData,
+              examplesHeaders: currentExamplesHeaders,
+              examplesLineNumbers: currentExamplesLineNumbers,
+              outlineLineNumber,
+            });
+          } else {
+            scenarios.push(currentScenario);
+          }
+        }
+
+        const matchedKeyword = this.findMatchedKeyword(trimmed, keywords.scenario);
+        const scenarioName = this.extractNameAfterKeyword(trimmed, matchedKeyword);
+
+        if (!scenarioName) {
+          Logger.getInstance().warn(
+            `Warning: Empty scenario name found at line ${lineNumber} in feature file`
+          );
+        }
+
+        currentScenario = {
+          name: scenarioName || "Unnamed Scenario",
+          line: lineNumber,
+          range: new vscode.Range(lineNumber - 1, 0, lineNumber - 1, 0),
+          lineNumber,
+          steps: [],
+          tags: currentScenarioTags,
+          filePath: "",
+          isScenarioOutline: false,
+          featureLineNumber,
+        };
+        inExamplesSection = false;
+        isCurrentScenarioOutline = false;
         currentExamplesData = [];
         currentExamplesHeaders = [];
         currentExamplesLineNumbers = [];
@@ -363,6 +363,20 @@ export class FeatureParser {
   }
 
   /**
+   * Extract name after keyword, removing the keyword and colon
+   * @param line - Full line after trimming
+   * @param keyword - The matched keyword to remove
+   * @returns The extracted name without keyword and colon
+   */
+  private static extractNameAfterKeyword(line: string, keyword: string): string {
+    let name = line.substring(keyword.length).trim();
+    if (name.startsWith(':')) {
+      name = name.substring(1).trim();
+    }
+    return name;
+  }
+
+  /**
    * Extract all unique tags from a feature file
    * @param content - Feature file content
    * @returns Array of unique tags
@@ -464,7 +478,7 @@ export class FeatureParser {
         const matchedKeyword = isScenarioOutline 
           ? this.findMatchedKeyword(trimmed, keywords.scenario_outline)
           : this.findMatchedKeyword(trimmed, keywords.scenario);
-        const scenarioName = trimmed.substring(matchedKeyword.length).trim();
+        const scenarioName = this.extractNameAfterKeyword(trimmed, matchedKeyword);
 
         const scenarioRange = this.getScenarioRange(lines, lineNumber);
 
