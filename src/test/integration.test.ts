@@ -1,6 +1,8 @@
 import * as assert from "assert";
-import * as vscode from "vscode";
 import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import * as vscode from "vscode";
 
 // Remove console statements or replace with proper logging
  
@@ -166,15 +168,17 @@ suite("Integration Test Suite", () => {
   });
 
   test("Should handle URI operations", () => {
-    // Test URI creation and manipulation
-    const uri = vscode.Uri.file("/tmp/test.feature");
+    // Test URI creation and manipulation (platform-agnostic path)
+    const testPath = path.join(os.tmpdir(), "test.feature");
+    const uri = vscode.Uri.file(testPath);
     assert.ok(uri, "Should be able to create URI");
     assert.strictEqual(uri.scheme, "file", "URI should have file scheme");
-    assert.strictEqual(
-      uri.fsPath,
-      "/tmp/test.feature",
-      "URI should have correct fsPath"
-    );
+    // On Windows, drive letter case may differ (os.tmpdir vs uri.fsPath)
+    const pathsMatch =
+      process.platform === "win32"
+        ? uri.fsPath.toLowerCase() === testPath.toLowerCase()
+        : uri.fsPath === testPath;
+    assert.ok(pathsMatch, "URI should have correct fsPath");
   });
 
   test("Should handle workspace folder operations", () => {
