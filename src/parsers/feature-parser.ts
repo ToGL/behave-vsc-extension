@@ -346,10 +346,19 @@ export class FeatureParser {
    * Check if a line matches any of the given keywords
    * @param line - Line to check
    * @param keywords - Array of keywords to match
-   * @returns True if line starts with any keyword
+   * @returns True if line starts with any keyword followed by a delimiter
    */
   private static matchesKeyword(line: string, keywords: string[]): boolean {
-    return keywords.some(keyword => line.startsWith(keyword));
+    return keywords.some(keyword => {
+      if (!line.startsWith(keyword)) {
+        return false;
+      }
+      const charAfterKeyword = line[keyword.length];
+      return charAfterKeyword === undefined || 
+             charAfterKeyword === ':' || 
+             charAfterKeyword === ' ' ||
+             charAfterKeyword === '\t';
+    });
   }
 
   /**
@@ -359,7 +368,16 @@ export class FeatureParser {
    * @returns The matched keyword or empty string
    */
   private static findMatchedKeyword(line: string, keywords: string[]): string {
-    return keywords.find(keyword => line.startsWith(keyword)) ?? '';
+    return keywords.find(keyword => {
+      if (!line.startsWith(keyword)) {
+        return false;
+      }
+      const charAfterKeyword = line[keyword.length];
+      return charAfterKeyword === undefined || 
+             charAfterKeyword === ':' || 
+             charAfterKeyword === ' ' ||
+             charAfterKeyword === '\t';
+    }) ?? '';
   }
 
   /**
